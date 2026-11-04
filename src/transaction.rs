@@ -40,29 +40,17 @@ pub fn assemble_transaction(
 
     let min_resource_fee = simulation
         .min_resource_fee
-        .as_deref()
-        .and_then(|fee| fee.parse::<u32>().ok())
-        .ok_or_else(|| Error::JsonError("minResourceFee".to_string()))?;
+        .as_ref()
+        .unwrap()
+        .parse::<u32>()
+        .unwrap_or(0);
 
     let soroban_tx_data = simulation
         .to_transaction_data()
         .expect("No transaction data");
 
-    // A transaction that was already assembled carries the previous resource fee in its
-    // fee. Take it out first, so assembling twice doesn't count the resource fee twice.
-    let mut inclusion_fee = tx.fee;
-    if let Some(data) = &tx.soroban_data {
-        if let Ok(previous_resource_fee) = u32::try_from(data.resource_fee) {
-            if inclusion_fee > previous_resource_fee {
-                inclusion_fee -= previous_resource_fee;
-            }
-        }
-    }
-
     let mut ntx = tx.clone();
-    ntx.fee = inclusion_fee
-        .checked_add(min_resource_fee)
-        .ok_or(Error::TransactionError)?;
+    ntx.fee += min_resource_fee;
     ntx.soroban_data = Some(soroban_tx_data);
 
     // Process the operation
